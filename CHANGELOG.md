@@ -1,5 +1,5 @@
 # v1.0.0
-## 09/04/2026
+## 09/05/2026
 
 1. [](#new)
     * Initial release. Resend integration for the Email plugin, over Resend's API or over their SMTP server, through Symfony's own Resend mailer bridge. Resend's SMTP user is the word `resend` for every account and the password is the same API key, so there is one field to fill in rather than three.
