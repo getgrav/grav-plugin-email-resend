@@ -3,7 +3,7 @@
   "type": "grav-plugin",
   "description": "Resend integration for the Email plugin (API and SMTP)",
   "keywords": ["plugin", "email", "resend"],
-  "homepage": "https://github.com/trilbymedia/grav-plugin-email-resend",
+  "homepage": "https://github.com/getgrav/grav-plugin-email-resend",
   "license": "MIT",
   "authors": [
     {
