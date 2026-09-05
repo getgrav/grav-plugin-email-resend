@@ -1,3 +1,4 @@
 enabled: true
 transport: api
 api_key:
+signing_secret:
