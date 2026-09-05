@@ -8,10 +8,10 @@ icon: envelope
 author:
   name: Team Grav
   email: devs@getgrav.org
-homepage: https://github.com/trilbymedia/grav-plugin-email-resend
+homepage: https://github.com/getgrav/grav-plugin-email-resend
 keywords: grav, plugin, email, resend, smtp, api
-bugs: https://github.com/trilbymedia/grav-plugin-email-resend/issues
-docs: https://github.com/trilbymedia/grav-plugin-email-resend/blob/develop/README.md
+bugs: https://github.com/getgrav/grav-plugin-email-resend/issues
+docs: https://github.com/getgrav/grav-plugin-email-resend/blob/develop/README.md
 license: MIT
 
 compatibility:
