@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Grav\Plugin\EmailResend\Tests\Unit\Provider;
 
 use Grav\Plugin\Email\Providers\Event;
+use Grav\Plugin\Email\Providers\SendHeader;
 use Grav\Plugin\Email\Providers\WebhookRequest;
 use Grav\Plugin\EmailResend\Provider\ResendReports;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -75,8 +76,24 @@ final class ResendParserTest extends TestCase
         yield 'delay is not a bounce' => ['email.delivery_delayed', null];
 
         yield 'sent is not delivered' => ['email.sent', null];
-        yield 'failed is not acted on' => ['email.failed', null];
-        yield 'suppressed is not acted on' => ['email.suppressed', null];
+
+        // Resend refusing to send at all, in its two shapes. Neither was ever
+        // handed to a receiving server, so neither is a bounce.
+        yield 'failed' => ['email.failed', [
+            'type' => Event::DROPPED,
+            'hard' => null,
+            'email' => 'delivered@resend.dev',
+            'message_id' => '111-222-333@email.example.com',
+            'reason' => 'reached_daily_quota',
+        ]];
+
+        yield 'suppressed' => ['email.suppressed', [
+            'type' => Event::DROPPED,
+            'hard' => null,
+            'email' => 'delivered@resend.dev',
+            'reason' => 'OnAccountSuppressionList: Resend has suppressed sending to this address because it is '
+                . 'on the account-level suppression list. This does not count toward your bounce rate metric',
+        ]];
     }
 
     /**
@@ -182,14 +199,15 @@ final class ResendParserTest extends TestCase
         self::assertStringContainsString('contact.created', $payload->note);
     }
 
-    /** The five words this provider can report, and no others. */
-    public function testItReportsTheFiveEventsItSubscribesTo(): void
+    /** The six words this provider can report, and no others. */
+    public function testItReportsTheSixEventsItSubscribesTo(): void
     {
         $events = (new ResendReports())->events();
 
         self::assertSame(
-            [Event::DELIVERED, Event::BOUNCED, Event::COMPLAINED, Event::OPENED, Event::CLICKED],
-            $events
+            [Event::DELIVERED, Event::BOUNCED, Event::COMPLAINED, Event::OPENED, Event::CLICKED, Event::DROPPED],
+            $events,
+            'dropped is both email.failed and email.suppressed, and is named once'
         );
 
         foreach ($events as $event) {
@@ -199,7 +217,30 @@ final class ResendParserTest extends TestCase
 
     public function testTheSendHeaderIsNamedOnceAndInOnePlace(): void
     {
-        self::assertSame('X-KahunaCart-Send', (new ResendReports())->sendHeader());
+        self::assertSame(SendHeader::name(), (new ResendReports())->sendHeader());
+        self::assertSame('X-Grav-Send-Id', (new ResendReports())->sendHeader());
+    }
+
+    /**
+     * The tag key follows the header's name, folded into the alphabet Resend
+     * allows in a tag.
+     */
+    public function testTheTagKeyIsTheHeadersNameInResendsAlphabet(): void
+    {
+        self::assertSame('grav-send-id', ResendReports::tag());
+
+        SendHeader::override('X-Shop Send!');
+
+        try {
+            // Not a legal header name, so the default stands and the tag with it.
+            self::assertSame('grav-send-id', ResendReports::tag());
+
+            SendHeader::override('X-Shop-Send');
+
+            self::assertSame('shop-send', ResendReports::tag());
+        } finally {
+            SendHeader::override(null);
+        }
     }
 
     // ------------------------------------------------------------- internals

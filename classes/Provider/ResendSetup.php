@@ -49,13 +49,23 @@ final class ResendSetup implements WebhookSetup
         . 'key with Full access or check the one you are using. A key with Sending access sends mail perfectly '
         . 'well and cannot create the webhook that reports what happened to it.';
 
-    /** The contract's event words to Resend's own. */
+    /**
+     * The contract's event words to Resend's own.
+     *
+     * A list each, because `dropped` is two of Resend's: `email.failed` is
+     * Resend saying it could not send, and `email.suppressed` is Resend saying
+     * the address was already on its own list. Both mean nothing was handed to
+     * a receiving server.
+     *
+     * @var array<string, list<string>>
+     */
     private const EVENTS = [
-        Event::DELIVERED => 'email.delivered',
-        Event::BOUNCED => 'email.bounced',
-        Event::COMPLAINED => 'email.complained',
-        Event::OPENED => 'email.opened',
-        Event::CLICKED => 'email.clicked',
+        Event::DELIVERED => ['email.delivered'],
+        Event::BOUNCED => ['email.bounced'],
+        Event::COMPLAINED => ['email.complained'],
+        Event::OPENED => ['email.opened'],
+        Event::CLICKED => ['email.clicked'],
+        Event::DROPPED => ['email.failed', 'email.suppressed'],
     ];
 
     /**
@@ -152,10 +162,10 @@ final class ResendSetup implements WebhookSetup
      *
      * An event this provider cannot report is dropped rather than refused: the
      * contract says a provider maps what it can and ignores the rest, so a
-     * caller asking for `dropped` as well gets a webhook for the five that
-     * exist rather than an error about the one that does not. Asking for
-     * nothing at all registers the five, because a webhook for no events is a
-     * webhook that never fires.
+     * caller asking for a word Resend has never heard of gets a webhook for the
+     * ones it does have rather than an error. Asking for nothing at all
+     * registers all seven, because a webhook for no events is a webhook that
+     * never fires.
      *
      * @param  list<string> $events
      * @return list<string>
@@ -165,9 +175,10 @@ final class ResendSetup implements WebhookSetup
         $names = [];
 
         foreach ($events as $event) {
-            $name = self::EVENTS[strtolower(trim((string)$event))] ?? null;
-            if ($name !== null && !\in_array($name, $names, true)) {
-                $names[] = $name;
+            foreach (self::EVENTS[strtolower(trim((string)$event))] ?? [] as $name) {
+                if (!\in_array($name, $names, true)) {
+                    $names[] = $name;
+                }
             }
         }
 

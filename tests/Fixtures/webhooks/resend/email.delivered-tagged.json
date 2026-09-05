@@ -10,7 +10,7 @@
     "subject": "Sending this example",
     "tags": {
       "category": "campaign",
-      "kahunacart_send": "41"
+      "grav-send-id": "41"
     }
   }
 }

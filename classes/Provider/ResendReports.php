@@ -7,6 +7,7 @@ namespace Grav\Plugin\EmailResend\Provider;
 use Grav\Plugin\Email\Providers\DeliveryReports;
 use Grav\Plugin\Email\Providers\Event;
 use Grav\Plugin\Email\Providers\Payload;
+use Grav\Plugin\Email\Providers\SendHeader;
 use Grav\Plugin\Email\Providers\Verdict;
 use Grav\Plugin\Email\Providers\WebhookRequest;
 
@@ -58,7 +59,8 @@ use Grav\Plugin\Email\Providers\WebhookRequest;
  * `data.tags` is the one merchant-settable map that does come back, and it is
  * read as a fallback for a store that has wired one up by hand — Resend's tag
  * keys are restricted to letters, digits, underscores and hyphens, so the key
- * is `kahunacart_send` rather than the header's own name.
+ * is the send header's own name folded into that alphabet by {@see tag()}:
+ * `X-Grav-Send-Id` becomes `grav-send-id`.
  *
  * ## Svix signatures
  *
@@ -75,26 +77,6 @@ use Grav\Plugin\Email\Providers\WebhookRequest;
  */
 final class ResendReports implements DeliveryReports
 {
-    /**
-     * The header a store stamps its send id into.
-     *
-     * Named here so the store and the provider cannot disagree about it. It is
-     * spelled the way KahunaCart's newsletter add-on has spelled it since it
-     * was the only thing reading these webhooks. Resend never sends it back —
-     * see the class note — and it is answered anyway because the contract asks
-     * for a name and because a store setting the matching tag needs to know
-     * which one.
-     */
-    public const SEND_HEADER = 'X-KahunaCart-Send';
-
-    /**
-     * The tag key a store can set on a send to carry the send id.
-     *
-     * Resend restricts tag keys to letters, digits, underscores and hyphens, so
-     * this cannot simply be the header's own name.
-     */
-    public const TAG = 'kahunacart_send';
-
     /** The config key the signing secret is kept under. */
     public const SECRET_KEY = 'signing_secret';
 
@@ -127,13 +109,15 @@ final class ResendReports implements DeliveryReports
      * delivery or by a bounce. Acting on it would suppress addresses that are
      * about to receive their mail.
      *
-     * `email.failed` and `email.suppressed` are not mapped either, and those
-     * two are the candidates for {@see Event::DROPPED} — Resend refusing to
-     * send at all, which is exactly what that word was added for. Leaving them
-     * skipped is what the newsletter's parser did before this moved here, and
-     * starting to act on them would start suppressing addresses that are not
-     * suppressed today. That is a decision for whoever owns a store's
-     * suppression rules rather than for a move.
+     * `email.failed` and `email.suppressed` are both {@see Event::DROPPED}:
+     * Resend refusing to send at all, which is exactly what that word is for.
+     * `email.suppressed` is Resend saying the address was already on its own
+     * suppression list, and `email.failed` is Resend saying it could not send
+     * for a reason of its own — an unverified domain, a quota. Neither was ever
+     * handed to a receiving server, so neither is a bounce, and whatever
+     * records these events decides for itself what a drop means for a
+     * subscriber. `email.failed` in particular is often the store's own problem
+     * rather than the recipient's, and its `reason` says which.
      *
      * @var array<string, string>
      */
@@ -143,6 +127,8 @@ final class ResendReports implements DeliveryReports
         'email.complained' => Event::COMPLAINED,
         'email.opened' => Event::OPENED,
         'email.clicked' => Event::CLICKED,
+        'email.failed' => Event::DROPPED,
+        'email.suppressed' => Event::DROPPED,
     ];
 
     /** @var (callable(): int) */
@@ -157,7 +143,7 @@ final class ResendReports implements DeliveryReports
     /** @return list<string> */
     public function events(): array
     {
-        return array_values(self::TYPES);
+        return array_values(array_unique(array_values(self::TYPES)));
     }
 
     /**
@@ -248,6 +234,13 @@ final class ResendReports implements DeliveryReports
             $hard = strtolower(trim((string)($bounce['type'] ?? ''))) === 'permanent';
         }
 
+        // A drop carries its own explanation under its own key, and the two are
+        // shaped differently: `failed.reason` is a machine word and
+        // `suppressed.message` is a sentence Resend wrote for a person.
+        if ($type === Event::DROPPED) {
+            $bounce = self::refusal($data);
+        }
+
         return Payload::of([Event::of(
             $type,
             $hard,
@@ -260,9 +253,30 @@ final class ResendReports implements DeliveryReports
         )]);
     }
 
+    /**
+     * The name the Email plugin answers, which is `X-Grav-Send-Id` unless the
+     * site says otherwise.
+     *
+     * Resend never sends it back — see the class note — and it is answered
+     * anyway because the contract asks for a name and because a store setting
+     * the matching tag needs to know which one.
+     */
     public function sendHeader(): string
     {
-        return self::SEND_HEADER;
+        return SendHeader::name();
+    }
+
+    /**
+     * The send header's name as a Resend tag key.
+     *
+     * Resend allows letters, digits, underscores and hyphens in a tag key and
+     * nothing else, so the header's name is lower-cased, its leading `X-`
+     * dropped and everything outside that alphabet turned into an underscore.
+     * `X-Grav-Send-Id` becomes `grav-send-id`.
+     */
+    public static function tag(): string
+    {
+        return strtolower((string)preg_replace('/[^A-Za-z0-9_\-]/', '_', SendHeader::metadataKey()));
     }
 
     // ------------------------------------------------------------- internals
@@ -316,12 +330,40 @@ final class ResendReports implements DeliveryReports
     }
 
     /**
+     * Resend's own words about a message it refused to send, in the two shapes
+     * it writes them.
+     *
+     * `email.failed` carries `failed.reason`, which is a machine word like
+     * `reached_daily_quota` and is worth passing on as it is; `email.suppressed`
+     * carries `suppressed.message` and `suppressed.type`. Both are turned into
+     * the pair {@see reason()} already knows how to read.
+     *
+     * @param  array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private static function refusal(array $data): array
+    {
+        $suppressed = \is_array($data['suppressed'] ?? null) ? $data['suppressed'] : null;
+
+        if ($suppressed !== null) {
+            return [
+                'message' => (string)($suppressed['message'] ?? ''),
+                'subType' => (string)($suppressed['type'] ?? ''),
+            ];
+        }
+
+        $failed = \is_array($data['failed'] ?? null) ? $data['failed'] : [];
+
+        return ['message' => (string)($failed['reason'] ?? '')];
+    }
+
+    /**
      * The send id out of the one merchant-settable map Resend echoes.
      *
      * Not a header: Resend returns no headers on any webhook. `data.tags` is
-     * what does come back, and a store that set the `kahunacart_send` tag on
-     * the send gets the id here. A store that did not gets null and correlates
-     * on the `Message-ID`, which needs nothing configured at all.
+     * what does come back, and a store that set the {@see tag()} tag on the
+     * send gets the id here. A store that did not gets null and correlates on
+     * the `Message-ID`, which needs nothing configured at all.
      *
      * @param array<string, mixed> $data
      */
@@ -332,19 +374,7 @@ final class ResendReports implements DeliveryReports
             return null;
         }
 
-        $value = $tags[self::TAG] ?? null;
-
-        if (\is_int($value) || \is_float($value)) {
-            $value = (string)$value;
-        }
-
-        if (!\is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
+        return SendHeader::idIn($tags, self::tag());
     }
 
     /** One of the three headers, under either spelling. */

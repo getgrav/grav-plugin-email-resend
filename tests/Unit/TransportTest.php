@@ -73,7 +73,7 @@ final class TransportTest extends TestCase
             ->html('<p>Hello</p>');
 
         $headers = $email->getHeaders();
-        $headers->addTextHeader('X-KahunaCart-Send', '41');
+        $headers->addTextHeader('X-Grav-Send-Id', '41');
         $headers->addTextHeader('List-Unsubscribe', '<https://example.com/u/abc>');
         $headers->addTextHeader('List-Unsubscribe-Post', 'List-Unsubscribe=One-Click');
 
@@ -83,7 +83,7 @@ final class TransportTest extends TestCase
 
         self::assertSame('Sending this example', $payload['subject']);
         self::assertSame(['jane@example.com'], $payload['to']);
-        self::assertSame('41', $payload['headers']['X-KahunaCart-Send']);
+        self::assertSame('41', $payload['headers']['X-Grav-Send-Id']);
         self::assertSame('<https://example.com/u/abc>', $payload['headers']['List-Unsubscribe']);
         self::assertSame('List-Unsubscribe=One-Click', $payload['headers']['List-Unsubscribe-Post']);
     }

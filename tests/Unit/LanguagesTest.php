@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Grav\Plugin\EmailResend\Tests\Unit;
 
+use Grav\Plugin\Email\Providers\SendHeader;
 use Grav\Plugin\EmailResend\Provider\ResendProvider;
+use Grav\Plugin\EmailResend\Provider\ResendReports;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,9 +27,17 @@ final class LanguagesTest extends TestCase
         $yaml = (string)file_get_contents(\dirname(__DIR__, 2) . '/languages/en.yaml');
         $provider = new ResendProvider();
 
+        // The header and the tag are put in at the last moment on both sides,
+        // because the name is the site's to change and a sentence with a header
+        // baked into it is a sentence that goes wrong quietly.
+        $said = strtr($provider->capabilities()->echoNote, [
+            SendHeader::name() => '%header%',
+            ResendReports::tag() => '%tag%',
+        ]);
+
         self::assertStringContainsString('PLUGIN_EMAIL_RESEND:', $yaml);
         self::assertStringContainsString($provider->instructions(), $yaml);
-        self::assertStringContainsString($provider->capabilities()->echoNote, $yaml);
+        self::assertStringContainsString($said, $yaml);
     }
 
     /** Both keys the provider looks up exist, spelled the way it looks them up. */

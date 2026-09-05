@@ -49,20 +49,22 @@ final class ResendSetupTest extends TestCase
         self::assertSame(self::URL, $create['body']['endpoint']);
         self::assertSame('Bearer re_a_sending_key', $create['headers']['Authorization']);
 
-        // The five Resend can report. `dropped` is in Event::TYPES and Resend
-        // has no event for it, and a caller asking for it should get a webhook
-        // for the five that exist rather than an error about the one that does
-        // not.
+        // The six contract words as Resend's seven event names: `dropped` is
+        // both `email.failed` and `email.suppressed`, because Resend refuses to
+        // send for a reason of its own and for an address already on its list,
+        // and neither ever reaches a receiving server.
         self::assertSame([
             'email.delivered',
             'email.bounced',
             'email.complained',
             'email.opened',
             'email.clicked',
+            'email.failed',
+            'email.suppressed',
         ], $create['body']['events']);
     }
 
-    /** Asking for nothing registers the five, because a webhook for no events never fires. */
+    /** Asking for nothing registers all of them, because a webhook for no events never fires. */
     public function testAskingForNoEventsRegistersAllOfThem(): void
     {
         $http = FakeHttp::happy();

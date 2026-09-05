@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Grav\Plugin\EmailResend\Tests\Unit\Provider;
 
+use Grav\Plugin\Email\Providers\SendHeader;
 use Grav\Plugin\Email\Providers\DeliveryReports;
 use Grav\Plugin\Email\Providers\Provider;
 use Grav\Plugin\Email\Providers\ProviderRegistry;
@@ -82,8 +83,8 @@ final class ResendProviderTest extends TestCase
 
         // The note is the whole value of a false here: it has to say what to do
         // instead, in plain words, on the same screen.
-        self::assertStringContainsString(ResendReports::SEND_HEADER, $capabilities->echoNote);
-        self::assertStringContainsString(ResendReports::TAG, $capabilities->echoNote);
+        self::assertStringContainsString(SendHeader::name(), $capabilities->echoNote);
+        self::assertStringContainsString(ResendReports::tag(), $capabilities->echoNote);
         self::assertStringContainsString('Message-ID', $capabilities->echoNote);
     }
 

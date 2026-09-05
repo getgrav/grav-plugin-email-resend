@@ -49,6 +49,8 @@ final class ResendApi
         'email.complained',
         'email.opened',
         'email.clicked',
+        'email.failed',
+        'email.suppressed',
     ];
 
     /**
