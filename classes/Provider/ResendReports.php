@@ -114,21 +114,35 @@ final class ResendReports implements DeliveryReports
      * `email.suppressed` is Resend saying the address was already on its own
      * suppression list, and `email.failed` is Resend saying it could not send
      * for a reason of its own — an unverified domain, a quota. Neither was ever
-     * handed to a receiving server, so neither is a bounce, and whatever
-     * records these events decides for itself what a drop means for a
-     * subscriber. `email.failed` in particular is often the store's own problem
-     * rather than the recipient's, and its `reason` says which.
+     * handed to a receiving server, so neither is a bounce.
+     *
+     * Which of the two it was is on the event's `hard`, and Resend is the one
+     * provider that answers it with the event name rather than with a reason
+     * string. `email.suppressed` is **the address**: Resend holds it on its own
+     * list and will refuse the next message to it as well, so `hard` is true
+     * and a store may treat that as permanent. `email.failed` is **the
+     * message**, so `hard` is false — its own documented reason is
+     * `reached_daily_quota`, and every other one of them is the merchant's
+     * account rather than the recipient. A store that suppressed on an
+     * `email.failed` would take a subscriber off its list for the store's own
+     * sending limit.
      *
      * @var array<string, string>
      */
+    /** The drop that is the address, rather than the message. */
+    public const EVENT_SUPPRESSED = 'email.suppressed';
+
+    /** The drop that is the message, rather than the address. */
+    public const EVENT_FAILED = 'email.failed';
+
     public const TYPES = [
         'email.delivered' => Event::DELIVERED,
         'email.bounced' => Event::BOUNCED,
         'email.complained' => Event::COMPLAINED,
         'email.opened' => Event::OPENED,
         'email.clicked' => Event::CLICKED,
-        'email.failed' => Event::DROPPED,
-        'email.suppressed' => Event::DROPPED,
+        self::EVENT_FAILED => Event::DROPPED,
+        self::EVENT_SUPPRESSED => Event::DROPPED,
     ];
 
     /** @var (callable(): int) */
@@ -239,6 +253,10 @@ final class ResendReports implements DeliveryReports
         // `suppressed.message` is a sentence Resend wrote for a person.
         if ($type === Event::DROPPED) {
             $bounce = self::refusal($data);
+            // The event name is the whole of the answer here — see the class
+            // note. `email.suppressed` is the address, `email.failed` is the
+            // message.
+            $hard = $name === self::EVENT_SUPPRESSED;
         }
 
         return Payload::of([Event::of(

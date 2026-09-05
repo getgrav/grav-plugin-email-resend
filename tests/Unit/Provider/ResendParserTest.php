@@ -78,10 +78,12 @@ final class ResendParserTest extends TestCase
         yield 'sent is not delivered' => ['email.sent', null];
 
         // Resend refusing to send at all, in its two shapes. Neither was ever
-        // handed to a receiving server, so neither is a bounce.
+        // handed to a receiving server, so neither is a bounce. `hard` is what
+        // tells them apart: a failure is the message, a suppression is the
+        // address.
         yield 'failed' => ['email.failed', [
             'type' => Event::DROPPED,
-            'hard' => null,
+            'hard' => false,
             'email' => 'delivered@resend.dev',
             'message_id' => '111-222-333@email.example.com',
             'reason' => 'reached_daily_quota',
@@ -89,7 +91,7 @@ final class ResendParserTest extends TestCase
 
         yield 'suppressed' => ['email.suppressed', [
             'type' => Event::DROPPED,
-            'hard' => null,
+            'hard' => true,
             'email' => 'delivered@resend.dev',
             'reason' => 'OnAccountSuppressionList: Resend has suppressed sending to this address because it is '
                 . 'on the account-level suppression list. This does not count toward your bounce rate metric',
@@ -213,6 +215,30 @@ final class ResendParserTest extends TestCase
         foreach ($events as $event) {
             self::assertContains($event, Event::TYPES);
         }
+    }
+
+    /**
+     * The two drops, and which of them a suppression list should act on.
+     *
+     * Resend is the one provider that answers this with the event name rather
+     * than with a reason string, so there is nothing to match on and nothing
+     * to get wrong: a suppression is always the address and a failure is
+     * always the message, whatever either of them carries as a reason.
+     */
+    public function testASuppressionIsTheAddressAndAFailureIsTheMessage(): void
+    {
+        $suppressed = (new ResendReports())->parse(self::request('email.suppressed'))->events[0];
+
+        self::assertTrue($suppressed->hard);
+        self::assertTrue($suppressed->isRefusedAddress(), 'Resend refuses the next message to it too');
+
+        $failed = (new ResendReports())->parse(self::request('email.failed'))->events[0];
+
+        self::assertFalse($failed->hard);
+        self::assertFalse(
+            $failed->isRefusedAddress(),
+            'a daily quota is the merchant\'s account and nobody comes off a list for it'
+        );
     }
 
     public function testTheSendHeaderIsNamedOnceAndInOnePlace(): void
