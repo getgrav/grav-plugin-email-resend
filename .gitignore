@@ -1,0 +1,8 @@
+.DS_Store
+.phpunit.cache/
+
+# The test harness installs into its own vendor directory so that the vendor
+# directory shipped with the plugin keeps holding the Resend bridge and nothing
+# else.
+tests/vendor/
+tests/composer.lock

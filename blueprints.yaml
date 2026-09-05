@@ -1,0 +1,52 @@
+name: Email Resend
+slug: email-resend
+type: plugin
+version: 1.0.0
+testing: false
+description: Resend integration for the Email plugin (API and SMTP)
+icon: envelope
+author:
+  name: Team Grav
+  email: devs@getgrav.org
+homepage: https://github.com/trilbymedia/grav-plugin-email-resend
+keywords: grav, plugin, email, resend, smtp, api
+bugs: https://github.com/trilbymedia/grav-plugin-email-resend/issues
+docs: https://github.com/trilbymedia/grav-plugin-email-resend/blob/develop/README.md
+license: MIT
+
+compatibility:
+  grav: ['1.7', '2.0']
+
+dependencies:
+  - { name: grav, version: '>=1.7.0' }
+  - { name: email, version: '>=4.0.0' }
+
+form:
+  validation: loose
+  fields:
+    enabled:
+      type: toggle
+      label: PLUGIN_ADMIN.PLUGIN_STATUS
+      highlight: 1
+      default: 0
+      options:
+        1: PLUGIN_ADMIN.ENABLED
+        0: PLUGIN_ADMIN.DISABLED
+      validate:
+        type: bool
+
+    transport:
+      type: select
+      size: small
+      label: Transport
+      default: api
+      help: API is faster and is what Resend recommend. Choose SMTP if your host blocks outbound API calls but allows port 465. Either way the API key below is what authenticates you, so there is no separate SMTP user to create.
+      options:
+        api: API (faster)
+        smtp: SMTP
+
+    api_key:
+      type: text
+      label: API Key
+      help: Your Resend API key, which begins with `re_`. In Resend, open **API Keys** and either copy an existing key or press **Create API Key**. This is what sends the mail on both transports — Resend's SMTP user is the word `resend` for everybody and the password is this same key, so there is no separate SMTP account to create.
+

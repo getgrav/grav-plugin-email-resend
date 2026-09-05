@@ -1,0 +1,41 @@
+{
+  "name": "getgrav/email-resend",
+  "type": "grav-plugin",
+  "description": "Resend integration for the Email plugin (API and SMTP)",
+  "keywords": ["plugin", "email", "resend"],
+  "homepage": "https://github.com/trilbymedia/grav-plugin-email-resend",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Team Grav",
+      "email": "devs@getgrav.org",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+    "php": ">=8.1",
+    "symfony/resend-mailer": "^7.1"
+  },
+  "replace": {
+    "symfony/mailer": "*",
+    "symfony/mime": "*",
+    "symfony/http-client": "*",
+    "symfony/http-client-contracts": "*",
+    "symfony/service-contracts": "*",
+    "symfony/deprecation-contracts": "*",
+    "psr/event-dispatcher": "*",
+    "psr/log": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "Grav\\Plugin\\EmailResend\\": "classes/"
+    },
+    "classmap": ["email-resend.php"]
+  },
+  "config": {
+    "platform": {
+      "php": "8.1.0"
+    },
+    "sort-packages": true
+  }
+}
