@@ -14,8 +14,8 @@ namespace Grav\Plugin\EmailResend\Provider;
  * call.
  *
  * Documentation: `resend.com/docs/api-reference/webhooks/create-webhook`,
- * `/list-webhooks`, `/domains/list-domains` and `/domains/get-domain`, read
- * 2026-09-05.
+ * `/list-webhooks`, `/update-webhook`, `/domains/list-domains` and
+ * `/domains/get-domain`, read 2026-09-05.
  *
  * ## The webhook call
  *
@@ -25,6 +25,12 @@ namespace Grav\Plugin\EmailResend\Provider;
  * again through the API. A merchant doing it by hand can still read it off the
  * webhook's page in the dashboard, which is the fallback when the config file
  * turns out not to be writable.
+ *
+ * `PATCH /webhooks/{id}` with `{endpoint, events, status}` is the other half of
+ * it, and the reason it is here is a store whose secret has changed: the
+ * webhook Resend holds is then posting at an address that answers 404. Moving
+ * that webhook is better than making a second one, because the signing secret
+ * the store already has belongs to it and an update mints no new one.
  *
  * ## What it does not do
  *
@@ -116,6 +122,99 @@ final class ResendApi
     }
 
     /**
+     * Point an existing webhook at a new address, keeping the events it reports.
+     *
+     * This is what `Set up` does when the store's secret has changed since the
+     * webhook was made: the old address answers 404, and Resend has no upsert.
+     * Editing the one that is there is also the only move that keeps the
+     * signing secret working, since Resend mints one per webhook and hands it
+     * over only on the create call — a second webhook would arrive signed with
+     * a secret the store has never seen.
+     *
+     * `status` is sent as `enabled` because a webhook Resend disabled after a
+     * run of failed posts — which is exactly what a dead address produces — is
+     * still disabled after an address change otherwise.
+     *
+     * @param  list<string> $events Resend's own event names
+     * @return array{ok: bool, id: string|null, secret: string, message: string}
+     */
+    public function updateWebhook(string $apiKey, string $id, string $url, array $events = self::EVENTS): array
+    {
+        $apiKey = trim($apiKey);
+        $id = trim($id);
+        $events = $events === [] ? self::EVENTS : $events;
+
+        if ($apiKey === '') {
+            return self::no('There is no Resend API key to set the webhook up with.');
+        }
+
+        if ($id === '') {
+            return self::no('There is no webhook to update.');
+        }
+
+        if (trim($url) === '') {
+            return self::no('There is no webhook address to register yet.');
+        }
+
+        $answer = $this->http->json('PATCH', self::BASE . '/webhooks/' . rawurlencode($id), [
+            'endpoint' => $url,
+            'events' => array_values($events),
+            'status' => 'enabled',
+        ], self::auth($apiKey));
+
+        if ($answer['status'] === 0) {
+            return self::no($answer['error'] !== ''
+                ? 'Resend could not be reached: ' . $answer['error'] . '.'
+                : 'Resend could not be reached.');
+        }
+
+        $body = \is_array($answer['body'] ?? null) ? $answer['body'] : [];
+
+        if ($answer['status'] < 200 || $answer['status'] >= 300) {
+            return self::no(self::refusal($body, $answer['status']));
+        }
+
+        return [
+            'ok' => true,
+            'id' => $id,
+            // Resend answers an update without a signing secret; it mints one
+            // per webhook and shows it only on the create call. The store keeps
+            // the one it already has, which still belongs to this webhook.
+            'secret' => '',
+            'message' => 'The webhook in Resend now points at this address.',
+        ];
+    }
+
+    /**
+     * The account's webhooks, or null when they could not be read at all.
+     *
+     * Why they could not be read is deliberately not answered: a key that
+     * cannot list webhooks is about to be refused by the create call in
+     * Resend's own words, and two messages about one permission is one message
+     * too many. Read once per press and matched twice by the setup, against the
+     * exact address and then against the endpoint, so Resend is asked one
+     * question.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    public function webhooks(string $apiKey): ?array
+    {
+        $apiKey = trim($apiKey);
+
+        if ($apiKey === '') {
+            return null;
+        }
+
+        $answer = $this->http->json('GET', self::BASE . '/webhooks', null, self::auth($apiKey));
+
+        if ($answer['status'] < 200 || $answer['status'] >= 300 || !\is_array($answer['body'] ?? null)) {
+            return null;
+        }
+
+        return self::rows($answer['body']);
+    }
+
+    /**
      * The id of a webhook already pointing at this address, or null.
      *
      * This is what keeps a second press of the button from leaving a store with
@@ -130,33 +229,75 @@ final class ResendApi
      */
     public function webhookAt(string $apiKey, string $url): ?string
     {
-        $apiKey = trim($apiKey);
+        $webhooks = $this->webhooks($apiKey);
+
+        return $webhooks === null ? null : self::idAt($webhooks, $url);
+    }
+
+    /**
+     * The id of the webhook in this list pointing at exactly this address, or
+     * null; an empty string where one is there and Resend did not name it.
+     *
+     * @param list<array<string, mixed>> $webhooks what {@see webhooks()} answered
+     */
+    public static function idAt(array $webhooks, string $url): ?string
+    {
         $url = trim($url);
 
-        if ($apiKey === '' || $url === '') {
+        if ($url === '') {
             return null;
         }
 
-        $answer = $this->http->json('GET', self::BASE . '/webhooks', null, self::auth($apiKey));
-
-        if ($answer['status'] < 200 || $answer['status'] >= 300 || !\is_array($answer['body'] ?? null)) {
-            return null;
-        }
-
-        foreach (self::rows($answer['body']) as $row) {
-            $endpoint = trim((string)($row['endpoint'] ?? $row['endpoint_url'] ?? $row['url'] ?? ''));
+        foreach ($webhooks as $row) {
+            $endpoint = self::endpointIn($row);
 
             if ($endpoint !== '' && rtrim($endpoint, '/') === rtrim($url, '/')) {
-                $id = trim((string)($row['id'] ?? ''));
-
                 // An empty string still means "one is already there", which is
                 // the question being asked. The caller shows a shorter sentence.
+                return trim((string)($row['id'] ?? ''));
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The id of a webhook pointing somewhere under this prefix, or null.
+     *
+     * A store's webhook address is its endpoint followed by a secret, so a
+     * webhook whose address starts with the endpoint but is not the whole
+     * address is this store's own registered against an older secret. That is
+     * the one worth updating rather than adding beside.
+     *
+     * Only a webhook Resend named is answered, because an update needs the id.
+     *
+     * @param list<array<string, mixed>> $webhooks what {@see webhooks()} answered
+     */
+    public static function idUnder(array $webhooks, string $prefix): ?string
+    {
+        $prefix = trim($prefix);
+
+        if ($prefix === '') {
+            return null;
+        }
+
+        foreach ($webhooks as $row) {
+            $endpoint = self::endpointIn($row);
+
+            if ($endpoint === '' || !str_starts_with($endpoint, $prefix)) {
+                continue;
+            }
+
+            $id = trim((string)($row['id'] ?? ''));
+
+            if ($id !== '') {
                 return $id;
             }
         }
 
         return null;
     }
+
 
     /**
      * What Resend says one sending domain's DNS should be: its DKIM selectors
@@ -340,6 +481,20 @@ final class ResendApi
         }
 
         return $out;
+    }
+
+    /**
+     * The address one of Resend's webhook rows is pointed at.
+     *
+     * `endpoint` is what their reference calls it; the other two are read as
+     * well because their SDK examples have shown both and it costs one line to
+     * not care which arrives.
+     *
+     * @param array<string, mixed> $row
+     */
+    private static function endpointIn(array $row): string
+    {
+        return trim((string)($row['endpoint'] ?? $row['endpoint_url'] ?? $row['url'] ?? ''));
     }
 
     /**

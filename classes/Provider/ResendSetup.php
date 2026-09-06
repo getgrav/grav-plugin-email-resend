@@ -35,6 +35,16 @@ use Grav\Plugin\Email\Providers\WebhookSetup;
  * saw and would be refused with nothing saying why. So {@see create()} asks for
  * the account's webhooks first and stops when one is already pointing at the
  * same address.
+ *
+ * ## Pressing it after the secret changed
+ *
+ * A new secret is a new address, and the webhook Resend holds is then posting
+ * at one that answers 404. It is still recognisably this store's: the address
+ * starts with the same endpoint and only the secret on the end is different.
+ * So {@see create()} finds it by that endpoint and moves it to the new address
+ * (`PATCH /webhooks/{id}`) rather than adding a second one. That also keeps the
+ * signing secret the store already holds working, since it belongs to that
+ * webhook and an update mints no new one.
  */
 final class ResendSetup implements WebhookSetup
 {
@@ -97,13 +107,36 @@ final class ResendSetup implements WebhookSetup
             return SetupResult::failed('There is no webhook address to register yet.');
         }
 
-        $already = $this->api->webhookAt($key, $url);
+        $webhooks = $this->api->webhooks($key);
+
+        $already = $webhooks === null ? null : ResendApi::idAt($webhooks, $url);
         if ($already !== null) {
             return SetupResult::ok(
                 'Resend already has a webhook at this address, so nothing was added. If delivery events are '
                 . 'still being refused, the signing secret here does not match that webhook: open it in Resend '
                 . 'and copy its signing secret into this plugin.',
                 $already === '' ? null : $already
+            );
+        }
+
+        // The store's own webhook, registered against a secret that has since
+        // changed. Moving it is the only move that leaves one working webhook:
+        // the old address answers 404, and a second webhook would come with a
+        // second signing secret the store never sees.
+        $stale = $webhooks === null ? null : ResendApi::idUnder($webhooks, self::endpointOf($url));
+        if ($stale !== null) {
+            $answer = $this->api->updateWebhook($key, $stale, $url, self::theirNames($events));
+
+            if (!$answer['ok']) {
+                return SetupResult::failed(self::sentence($answer['message']));
+            }
+
+            return SetupResult::ok(
+                'Resend had this store\'s webhook registered with an older secret. It now points at this address. '
+                . 'Resend hands a signing secret over only when a webhook is first created, so the one saved here '
+                . 'is still the right one for it; if delivery events are being refused, open the webhook in Resend '
+                . 'and copy its signing secret into this plugin.',
+                $stale
             );
         }
 
@@ -183,6 +216,18 @@ final class ResendSetup implements WebhookSetup
         }
 
         return $names === [] ? ResendApi::EVENTS : $names;
+    }
+
+    /**
+     * The address without its secret: everything up to and including the last
+     * slash. Two addresses that share it belong to the same store.
+     */
+    private static function endpointOf(string $url): string
+    {
+        $url = trim($url);
+        $cut = strrpos($url, '/');
+
+        return $cut === false || $cut < \strlen('https://x/') ? '' : substr($url, 0, $cut + 1);
     }
 
     /** @param array<string, mixed> $config */

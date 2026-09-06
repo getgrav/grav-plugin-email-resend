@@ -110,6 +110,64 @@ final class ResendSetupTest extends TestCase
     }
 
     /**
+     * A webhook registered against an older secret is moved to the new address
+     * rather than joined by a second one.
+     *
+     * A second webhook would be worse here than a duplicate: it would come with
+     * a signing secret of its own that the store never sees, so its events
+     * would all be refused.
+     */
+    public function testAWebhookOnAnOlderSecretIsPointedAtTheNewAddress(): void
+    {
+        $http = new FakeHttp([
+            FakeHttp::answer(200, ['object' => 'list', 'data' => [
+                ['id' => 'other', 'endpoint' => 'https://elsewhere.example.com/hook'],
+                ['id' => 'ours', 'endpoint' => 'https://store.example.com/newsletter/webhook/resend/the-old-secret'],
+            ]]),
+            FakeHttp::answer(200, ['object' => 'webhook', 'id' => 'ours']),
+        ]);
+
+        $saved = [];
+        $result = $this->button($http, function (string $secret) use (&$saved): bool {
+            $saved[] = $secret;
+
+            return true;
+        })->create(self::URL, Event::TYPES, []);
+
+        self::assertTrue($result->ok, $result->message);
+        self::assertSame('ours', $result->webhookId);
+        self::assertStringContainsString('older secret', $result->message);
+        self::assertSame([], $saved, 'an update mints no secret, so the one on file stays');
+        self::assertCount(2, $http->calls, 'nothing should have been created');
+
+        $update = $http->call(1);
+        self::assertSame('PATCH', $update['method']);
+        self::assertSame(ResendApi::BASE . '/webhooks/ours', $update['url']);
+        self::assertSame(self::URL, $update['body']['endpoint']);
+        self::assertSame('enabled', $update['body']['status']);
+        self::assertSame(ResendApi::EVENTS, $update['body']['events']);
+        self::assertSame('Bearer re_a_sending_key', $update['headers']['Authorization']);
+    }
+
+    /** A refused update comes back in Resend's own words, like a refused create. */
+    public function testARefusedRepointingIsAPlainSentence(): void
+    {
+        $http = new FakeHttp([
+            FakeHttp::answer(200, ['object' => 'list', 'data' => [
+                ['id' => 'ours', 'endpoint' => 'https://store.example.com/newsletter/webhook/resend/the-old-secret'],
+            ]]),
+            FakeHttp::answer(401, ['statusCode' => 401, 'name' => 'restricted_api_key', 'message' => 'This API key is restricted to only send emails']),
+        ]);
+
+        $result = $this->button($http)->create(self::URL, Event::TYPES, []);
+
+        self::assertFalse($result->ok);
+        self::assertStringContainsString('restricted to only send emails', $result->message);
+        self::assertStringContainsString('Full access', $result->message);
+        self::assertNull($result->webhookId);
+    }
+
+    /**
      * A key that is not allowed to manage webhooks, in Resend's own words plus
      * the box to tick.
      *

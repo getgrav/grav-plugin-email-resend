@@ -1,7 +1,7 @@
 name: Email Resend
 slug: email-resend
 type: plugin
-version: 1.0.0
+version: 1.0.1
 testing: false
 description: Resend integration for the Email plugin (API and SMTP), with delivery reports
 icon: envelope
