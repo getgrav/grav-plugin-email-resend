@@ -1,3 +1,9 @@
+# v1.0.1
+## 09/05/2026
+
+1. [](#bugfix)
+    * **Set up now repairs a webhook whose address has changed.** A store that generated a new secret, or lost its settings, was told nothing was registered while Resend still held a webhook at the old address, and pressing Set up made a second one — with a second signing secret the store never sees, so every event through it would have been refused. Set up now recognises the store's own webhook by its endpoint and moves it to the new address with `PATCH /webhooks/{id}`, which mints no new secret, so the one already saved carries on working.
+
 # v1.0.0
 ## 09/05/2026
 
