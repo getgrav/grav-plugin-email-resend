@@ -1,3 +1,9 @@
+# v1.0.2
+## 09/08/2026
+
+1. [](#bugfix)
+    * **The API key and the signing secret are no longer shown in the clear.** Every credential field in this plugin was typed `text`, so an account's sending credentials were rendered as readable text on the settings page and handed to the browser unmasked by the API. They are `password` fields now.
+
 # v1.0.1
 ## 09/05/2026
 

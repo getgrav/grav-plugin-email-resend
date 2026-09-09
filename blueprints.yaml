@@ -1,7 +1,7 @@
 name: Email Resend
 slug: email-resend
 type: plugin
-version: 1.0.1
+version: 1.0.2
 testing: false
 description: Resend integration for the Email plugin (API and SMTP), with delivery reports
 icon: envelope
@@ -46,7 +46,7 @@ form:
         smtp: SMTP
 
     api_key:
-      type: text
+      type: password
       label: API Key
       help: Your Resend API key, which begins with `re_`. In Resend, open **API Keys** and either copy an existing key or press **Create API Key**. This sends the mail, and it is also what creates the delivery-report webhook and reads your sending domain's DNS back out of Resend — so it is worth filling in on the SMTP transport as well. For the webhook it needs Full access; a Sending access key sends perfectly well and cannot create a webhook.
 
@@ -56,6 +56,6 @@ form:
       text: Resend can tell your site what happened to each message after it left — delivered, bounced, marked as spam, opened, clicked. An add-on that records those gives you a web address to register, and this is where the secret that proves the events really came from Resend is kept.
 
     signing_secret:
-      type: text
+      type: password
       label: Webhook signing secret
       help: The secret Resend shows when a webhook is created, which begins with `whsec_`. Press Set up in whichever add-on is showing you the webhook address and this is filled in for you. To do it by hand, open **Webhooks** in Resend, open your webhook and copy the signing secret from there. Without it every delivery event is refused, and nothing on any screen would say why.
