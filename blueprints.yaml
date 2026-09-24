@@ -59,3 +59,13 @@ form:
       type: password
       label: Webhook signing secret
       help: The secret Resend shows when a webhook is created, which begins with `whsec_`. Press Set up in whichever add-on is showing you the webhook address and this is filled in for you. To do it by hand, open **Webhooks** in Resend, open your webhook and copy the signing secret from there. Without it every delivery event is refused, and nothing on any screen would say why.
+
+    inbound:
+      type: section
+      title: Receiving mail
+      text: Resend can receive mail at your domain and tell your site about each message, for an add-on such as a helpdesk that turns replies into tickets. That add-on gives you a web address to register as a Resend webhook for the email.received event, and this is where that webhook's secret is kept. The message itself is downloaded afterwards with the API key above, which needs Full access for that.
+
+    inbound_signing_secret:
+      type: password
+      label: Inbound signing secret
+      help: The signing secret of the Resend webhook for email.received, which begins with `whsec_`. Open **Webhooks** in Resend, open that webhook and copy it from there. Resend makes a separate secret for every webhook, so this is not the same as the delivery-report secret above. Without it every received message is refused.

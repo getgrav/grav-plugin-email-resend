@@ -23,8 +23,14 @@ use Grav\Plugin\Email\Providers\WebhookSetup;
  * of its own. The two things here that talk to Resend are
  * {@see ResendSetup::create()}, which is behind a button, and the closure on
  * {@see domain()}, which the caller decides when to run.
+ *
+ * Not final, for one reason: {@see ResendInboundProvider} is this class plus
+ * the Email plugin's `InboundCapable` interface, and the plugin registers that
+ * one instead when the Email plugin is new enough to have the interface. This
+ * class names no inbound type in its declaration, so it still loads beside an
+ * Email plugin from before inbound mail.
  */
-final class ResendProvider implements Provider
+class ResendProvider implements Provider
 {
     /** The engine this plugin registers on `onEmailEngines`. */
     public const ENGINE = 'resend';
@@ -67,6 +73,8 @@ final class ResendProvider implements Provider
     private ?ResendSetup $setup = null;
 
     private ?ResendApi $api = null;
+
+    private ?ResendInbound $inbound = null;
 
     /**
      * @param array<string, mixed>                  $config this plugin's own config block
@@ -203,6 +211,19 @@ final class ResendProvider implements Provider
             . 'field in the Email Resend plugin, because without it every event is refused. Or paste a '
             . 'full-access API key into that plugin and press Set up, which does all of it for you.'
         );
+    }
+
+    /**
+     * The receiver for mail sent to a Resend receiving domain.
+     *
+     * Answers the Email plugin's `InboundCapable::inbound()` on
+     * {@see ResendInboundProvider}. Cheap and without I/O, like everything else
+     * a settings screen calls. Only call it where the Email plugin has inbound
+     * mail: {@see ResendInbound} implements that plugin's `InboundReceiver`.
+     */
+    public function inbound(): ResendInbound
+    {
+        return $this->inbound ??= new ResendInbound($this->config, $this->http);
     }
 
     /**

@@ -2,3 +2,4 @@ enabled: true
 transport: api
 api_key:
 signing_secret:
+inbound_signing_secret:
