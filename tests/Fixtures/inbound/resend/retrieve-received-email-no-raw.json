@@ -1,0 +1,50 @@
+{
+  "object": "email",
+  "id": "4ef9a417-02e9-4d39-ad75-9611e0fcc33c",
+  "to": ["Support <support+t8f2k@support.example.com>"],
+  "from": "customer@example.net",
+  "created_at": "2026-04-03T22:13:42.674Z",
+  "subject": "Re: [#1042] Printer on fire",
+  "html": "<p>Still on fire. <img src=\"cid:img001\"></p>",
+  "html_format": "cid",
+  "text": "Still on fire.\n",
+  "headers": {
+    "from": "Casey Customer <customer@example.net>",
+    "return-path": "<customer@example.net>",
+    "date": "Fri, 03 Apr 2026 22:13:40 +0000",
+    "message-id": "<CAB5678@mail.example.net>",
+    "in-reply-to": "<HD.1042.7@support.example.com>",
+    "references": "<hd.1042.1@support.example.com> <HD.1042.7@support.example.com>",
+    "content-type": "multipart/mixed; boundary=\"x\"",
+    "mime-version": "1.0"
+  },
+  "bcc": [],
+  "cc": ["Other Person <other@example.net>"],
+  "reply_to": [],
+  "received_for": [],
+  "authentication": {
+    "spf": "pass",
+    "dkim": "pass",
+    "dmarc": "processing_failed"
+  },
+  "message_id": "<CAB5678@mail.example.net>",
+  "raw": null,
+  "attachments": [
+    {
+      "id": "2a0c9ce0-3112-4728-976e-47ddcd16a318",
+      "filename": "avatar.png",
+      "content_type": "image/png",
+      "content_disposition": "inline",
+      "content_id": "img001",
+      "size": 8
+    },
+    {
+      "id": "3b1d0df1-4223-5839-087f-54eedd27b419",
+      "filename": "../../etc/document.pdf",
+      "content_type": "application/pdf",
+      "content_disposition": null,
+      "content_id": null,
+      "size": 9
+    }
+  ]
+}

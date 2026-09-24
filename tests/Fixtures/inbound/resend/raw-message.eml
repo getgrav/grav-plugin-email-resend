@@ -1,0 +1,33 @@
+Return-Path: <customer@example.net>
+From: Casey Customer <customer@example.net>
+To: Support <support+t8f2k@support.example.com>
+Subject: Re: [#1042] Printer on fire
+Date: Tue, 23 Sep 2026 10:15:00 +0000
+Message-ID: <CAB1234@mail.example.net>
+In-Reply-To: <hd.1042.7@support.example.com>
+References: <hd.1042.1@support.example.com> <hd.1042.7@support.example.com>
+Authentication-Results: mx.resend.com; spf=fail smtp.mailfrom=example.net; dkim=pass header.d=example.net
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="b1"
+
+--b1
+Content-Type: multipart/alternative; boundary="b2"
+
+--b2
+Content-Type: text/plain; charset=utf-8
+
+Still on fire.
+
+--b2
+Content-Type: text/html; charset=utf-8
+
+<p>Still on fire.</p>
+--b2--
+
+--b1
+Content-Type: text/plain; name="notes.txt"
+Content-Disposition: attachment; filename="notes.txt"
+Content-Transfer-Encoding: base64
+
+U21va2UgZXZlcnl3aGVyZQo=
+--b1--

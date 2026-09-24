@@ -1,0 +1,26 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "id": "2a0c9ce0-3112-4728-976e-47ddcd16a318",
+      "filename": "avatar.png",
+      "size": 8,
+      "content_type": "image/png",
+      "content_disposition": "inline",
+      "content_id": "img001",
+      "download_url": "https://inbound-cdn.resend.com/4ef9a417-02e9-4d39-ad75-9611e0fcc33c/attachments/2a0c9ce0-3112-4728-976e-47ddcd16a318?signature=sig-123",
+      "expires_at": "2026-10-17T14:29:41.521Z"
+    },
+    {
+      "id": "3b1d0df1-4223-5839-087f-54eedd27b419",
+      "filename": "../../etc/document.pdf",
+      "size": 9,
+      "content_type": "application/pdf",
+      "content_disposition": null,
+      "content_id": null,
+      "download_url": "https://inbound-cdn.resend.com/4ef9a417-02e9-4d39-ad75-9611e0fcc33c/attachments/3b1d0df1-4223-5839-087f-54eedd27b419?signature=sig-456",
+      "expires_at": "2026-10-17T14:29:41.521Z"
+    }
+  ]
+}
