@@ -8,6 +8,7 @@ use Composer\Autoload\ClassLoader;
 use Grav\Common\File\CompiledYamlFile;
 use Grav\Common\Grav;
 use Grav\Common\Plugin;
+use Grav\Plugin\EmailResend\Provider\ResendInboundProvider;
 use Grav\Plugin\EmailResend\Provider\ResendProvider;
 use RocketTheme\Toolbox\Event\Event;
 use Symfony\Component\Mailer\Bridge\Resend\Transport\ResendApiTransport;
@@ -108,7 +109,13 @@ class EmailResendPlugin extends Plugin
             return;
         }
 
-        $registry->add(new ResendProvider(
+        // An Email plugin with inbound mail gets the provider that says so. The
+        // check comes first because naming a missing interface is fatal.
+        $class = interface_exists(\Grav\Plugin\Email\Providers\Inbound\InboundCapable::class)
+            ? ResendInboundProvider::class
+            : ResendProvider::class;
+
+        $registry->add(new $class(
             (array)$this->config->get('plugins.email-resend', []),
             fn (string $secret): bool => $this->saveSetting('signing_secret', $secret),
             fn (string $key, string $fallback): string => $this->say($key, $fallback),
