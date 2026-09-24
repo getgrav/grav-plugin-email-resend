@@ -25,7 +25,7 @@ namespace Grav\Plugin\EmailResend\Provider;
  *   to become a sentence on a screen quickly, rather than a request that
  *   eventually hits the PHP time limit.
  */
-final class CurlHttp implements Http
+final class CurlHttp implements Http, Download
 {
     /** Seconds to connect. */
     public const CONNECT_TIMEOUT = 5;
@@ -66,11 +66,33 @@ final class CurlHttp implements Http
     }
 
     /**
+     * A plain GET of a signed download address, bytes back as they came.
+     *
+     * The same switches as {@see json()}, with the cap and the timeout the
+     * caller names, because this is the one call here that moves a whole
+     * received message (Resend accepts up to 40 MB) and it runs in a job worker
+     * rather than behind a screen. No headers are sent: the address carries its
+     * own signature, and the API key has no business travelling to a CDN.
+     */
+    public function download(string $url, int $maxBytes, int $timeout): array
+    {
+        $answer = $this->run('GET', $url, null, [], max(1, $maxBytes), max(1, $timeout));
+
+        return ['status' => $answer['status'], 'body' => $answer['raw'], 'error' => $answer['error']];
+    }
+
+    /**
      * @param array<string, string> $headers
      * @return array{status: int, raw: string|null, error: string}
      */
-    private function run(string $method, string $url, ?string $payload, array $headers): array
-    {
+    private function run(
+        string $method,
+        string $url,
+        ?string $payload,
+        array $headers,
+        int $maxBytes = self::MAX_BYTES,
+        int $timeout = self::TIMEOUT,
+    ): array {
         if (!\function_exists('curl_init')) {
             return ['status' => 0, 'raw' => null, 'error' => 'this installation has no cURL'];
         }
@@ -95,7 +117,7 @@ final class CurlHttp implements Http
             \CURLOPT_RETURNTRANSFER => false,
             \CURLOPT_CUSTOMREQUEST => $method,
             \CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
-            \CURLOPT_TIMEOUT => self::TIMEOUT,
+            \CURLOPT_TIMEOUT => $timeout,
             \CURLOPT_FOLLOWLOCATION => true,
             \CURLOPT_MAXREDIRS => 2,
             \CURLOPT_SSL_VERIFYPEER => true,
@@ -103,13 +125,13 @@ final class CurlHttp implements Http
             \CURLOPT_PROTOCOLS => \CURLPROTO_HTTPS,
             \CURLOPT_REDIR_PROTOCOLS => \CURLPROTO_HTTPS,
             \CURLOPT_HTTPHEADER => $lines,
-            \CURLOPT_WRITEFUNCTION => static function ($_, string $chunk) use (&$collected): int {
+            \CURLOPT_WRITEFUNCTION => static function ($_, string $chunk) use (&$collected, $maxBytes): int {
                 $collected .= $chunk;
 
                 // Returning fewer bytes than were handed over is how cURL is
                 // told to stop, which is the point: a body over the cap is
                 // abandoned rather than assembled and then thrown away.
-                return \strlen($collected) > self::MAX_BYTES ? 0 : \strlen($chunk);
+                return \strlen($collected) > $maxBytes ? 0 : \strlen($chunk);
             },
         ]);
 
@@ -120,6 +142,10 @@ final class CurlHttp implements Http
         $ok = curl_exec($handle);
         $status = (int)curl_getinfo($handle, \CURLINFO_RESPONSE_CODE);
         $error = $ok === false ? (string)curl_error($handle) : '';
+        if (\strlen($collected) > $maxBytes) {
+            $error = sprintf('the answer was larger than %d bytes, so it was abandoned', $maxBytes);
+            $collected = '';
+        }
         curl_close($handle);
 
         return [
