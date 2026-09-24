@@ -1,5 +1,5 @@
 # v1.1.0
-## 09/23/2026
+## 09/24/2026
 
 1. [](#new)
     * **Receiving mail.** With an Email plugin that has inbound mail, this plugin now reads Resend's `email.received` webhook for an add-on that wants received mail, such as a helpdesk. The webhook is checked with Svix exactly as delivery reports are, against its own new **Inbound signing secret** setting, because Resend makes a separate secret for every webhook. The webhook carries only the message's details, so it becomes a reference the add-on downloads later from its worker: `GET /emails/receiving/{id}`, then the original message from the signed raw link, or the fields and each attachment when Resend has no raw file. Resend's own SPF, DKIM and DMARC results travel with the message, and the setup steps name the MX record, the webhook and the secret.
