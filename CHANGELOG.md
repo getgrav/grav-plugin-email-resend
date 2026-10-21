@@ -1,3 +1,9 @@
+# v1.1.2
+## 10/21/2026
+
+1. [](#new)
+    * **A test address for webhook checks.** The provider now answers `testRecipient()` with `delivered@resend.dev`, the address Resend documents for testing delivery: it accepts the message, delivers it to nobody and reports it as delivered. A newsletter add-on that tests its delivery webhook after Set up sends its test there, so no real inbox gets it and the event still comes back. It is an optional method rather than part of the Email plugin's provider interface, so this plugin loads exactly as before beside an older Email plugin, which simply never asks
+
 # v1.1.1
 ## 10/21/2026
 

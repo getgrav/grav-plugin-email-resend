@@ -70,6 +70,20 @@ final class ResendProviderTest extends TestCase
     }
 
     /**
+     * The address a store's webhook test goes to: Resend's own, which nobody
+     * receives and Resend reports as delivered. A method on this class and not
+     * on the Email plugin's interface, so a store asks before it calls.
+     */
+    public function testTheTestAddressIsResendsOwnDeliveredAddress(): void
+    {
+        $provider = new ResendProvider([], null, null, self::hostile());
+
+        self::assertSame('delivered@resend.dev', $provider->testRecipient());
+        self::assertNotFalse(filter_var($provider->testRecipient(), FILTER_VALIDATE_EMAIL));
+        self::assertFalse(method_exists(Provider::class, 'testRecipient'), 'it is this class\'s, not the contract\'s');
+    }
+
+    /**
      * What Resend does to a message on the way out, and what it does not do on
      * the way back.
      */
