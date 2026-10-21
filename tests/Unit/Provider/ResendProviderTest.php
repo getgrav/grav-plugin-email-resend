@@ -89,25 +89,42 @@ final class ResendProviderTest extends TestCase
     }
 
     /**
-     * Resend's DNS is mostly Amazon's, because Resend sends through SES.
+     * Resend's SPF and return path live on the sending subdomain, a CNAME into
+     * rmta.net, not on the domain's own SPF record.
      *
      * The null DKIM zone is the one worth pinning: Resend publishes the key as
      * a TXT record rather than a CNAME, so there is no zone for a selector to
      * point into and a caller that invented one would be checking a name that
      * never existed.
      */
-    public function testTheDomainFactsAreAmazonsWithADkimTxtRecord(): void
+    public function testTheDomainFactsPointAtResendsSendingHostsWithADkimTxtRecord(): void
     {
         $facts = (new ResendProvider())->domain();
 
-        self::assertSame('amazonses.com', $facts->spfInclude);
+        self::assertSame('send.forge.rmta.net', $facts->spfInclude);
         self::assertNull($facts->dkimZone);
-        self::assertSame('amazonses.com', $facts->returnPathZone);
+        self::assertSame('rmta.net', $facts->returnPathZone);
 
         // No key configured means nothing to ask with, so there is no lookup
         // rather than one that fails.
         self::assertNull($facts->lookup);
         self::assertSame([], $facts->ask('example.com'));
+    }
+
+    /** A domain from Resend's Amazon SES days names its return path with an MX record instead. */
+    public function testAnOlderSesDomainStillAnswersItsReturnPath(): void
+    {
+        $http = new FakeHttp([
+            FakeHttp::answer(200, ['object' => 'list', 'data' => [['id' => 'd91cd9bd', 'name' => 'example.com']]]),
+            FakeHttp::answer(200, self::legacyDomainAnswer()),
+        ]);
+
+        $facts = (new ResendProvider(['api_key' => 're_a_key'], null, null, $http))->domain();
+
+        self::assertSame(
+            ['selectors' => ['resend'], 'return_paths' => ['send.example.com']],
+            $facts->ask('example.com')
+        );
     }
 
     /**
@@ -132,7 +149,7 @@ final class ResendProviderTest extends TestCase
         $facts = (new ResendProvider(['api_key' => 're_a_key'], null, null, $http))->domain();
 
         self::assertSame(
-            ['selectors' => ['resend'], 'return_paths' => ['send.example.com']],
+            ['selectors' => ['resend'], 'return_paths' => ['rsend.example.com', 'send.example.com']],
             $facts->ask('example.com')
         );
 
@@ -233,8 +250,51 @@ final class ResendProviderTest extends TestCase
 
     // ------------------------------------------------------------- internals
 
-    /** @return array<string, mixed> Resend's own documented answer for one domain */
+    /**
+     * One domain as Resend's API really answers it today, copied from the
+     * getgrav.org account on 2026-10-21 with the key shortened.
+     *
+     * @return array<string, mixed>
+     */
     private static function domainAnswer(): array
+    {
+        return [
+            'object' => 'domain',
+            'id' => 'd91cd9bd',
+            'name' => 'example.com',
+            'status' => 'verified',
+            'region' => 'us-east-1',
+            'records' => [
+                [
+                    'record' => 'DKIM',
+                    'name' => 'resend._domainkey',
+                    'value' => 'p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQ',
+                    'type' => 'TXT',
+                    'status' => 'verified',
+                    'ttl' => 'Auto',
+                ],
+                [
+                    'record' => 'SPF',
+                    'name' => 'rsend',
+                    'value' => 'rsend.forge.rmta.net',
+                    'type' => 'CNAME',
+                    'status' => 'verified',
+                    'ttl' => 'Auto',
+                ],
+                [
+                    'record' => 'SPF',
+                    'name' => 'send',
+                    'value' => 'send.forge.rmta.net',
+                    'type' => 'CNAME',
+                    'status' => 'verified',
+                    'ttl' => 'Auto',
+                ],
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> one domain as Resend answered it in its Amazon SES days */
+    private static function legacyDomainAnswer(): array
     {
         return [
             'object' => 'domain',

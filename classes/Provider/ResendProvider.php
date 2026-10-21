@@ -38,12 +38,15 @@ class ResendProvider implements Provider
     /**
      * The host an SPF record has to end up sending people to, at any depth.
      *
-     * Amazon's, not Resend's: Resend sends through SES and the record they hand
-     * a merchant is `v=spf1 include:amazonses.com ~all` on the sending
-     * subdomain. A merchant reading "amazonses.com" beside the word Resend has
-     * not misconfigured anything.
+     * Resend does not ask for anything on the domain's own SPF record. Its
+     * sending subdomain, `send.example.com`, is a CNAME to
+     * `send.forge.rmta.net`, which carries the SPF itself, and that is where a
+     * receiver checks, because it is the return path. This host is what an
+     * `include:` would have to name for the apex record to pass on its own,
+     * which nobody needs to do: the return path check below is the one that
+     * normally answers.
      */
-    public const SPF_INCLUDE = 'amazonses.com';
+    public const SPF_INCLUDE = 'send.forge.rmta.net';
 
     /**
      * Null, and deliberately.
@@ -56,8 +59,16 @@ class ResendProvider implements Provider
      */
     public const DKIM_ZONE = null;
 
-    /** The zone a return path ends up in, again Amazon's: `feedback-smtp.<region>.amazonses.com`. */
-    public const RETURN_PATH_ZONE = 'amazonses.com';
+    /** The zone a return path ends up in: `send.example.com` is a CNAME to `send.forge.rmta.net`. */
+    public const RETURN_PATH_ZONE = 'rmta.net';
+
+    /**
+     * Where a return path pointed when Resend sent through Amazon SES: an MX
+     * record to `feedback-smtp.<region>.amazonses.com` beside
+     * `v=spf1 include:amazonses.com ~all`. Domains added back then can still
+     * answer that way, so the account lookup still recognises it.
+     */
+    public const LEGACY_RETURN_PATH_ZONE = 'amazonses.com';
 
     /** The selector Resend publishes on every domain today. Read from the account rather than assumed. */
     public const SELECTOR = 'resend';
@@ -164,14 +175,15 @@ class ResendProvider implements Provider
      * All three of these are worth reading twice, because Resend is the one
      * provider here whose DNS is mostly somebody else's.
      *
-     * - **SPF is Amazon's**, because Resend sends through SES. The record goes
-     *   on the sending subdomain — `send.example.com` unless the account chose
-     *   another — and reads `v=spf1 include:amazonses.com ~all`.
+     * - **SPF lives on the sending subdomain**, not the domain's own record:
+     *   `send.example.com` (unless the account chose another) is a CNAME to
+     *   `send.forge.rmta.net`, whose own SPF lists Resend's servers.
      * - **DKIM is a TXT record**, at `resend._domainkey`, holding the key
      *   itself. Not a CNAME, so there is no zone to check a selector against,
      *   which is why {@see DKIM_ZONE} is null.
-     * - **The return path is the same sending subdomain**, with an MX record
-     *   pointing at `feedback-smtp.<region>.amazonses.com`.
+     * - **The return path is that same sending subdomain**, which is why SPF
+     *   aligns there. Older domains, from when Resend sent through Amazon SES,
+     *   have an MX record to `feedback-smtp.<region>.amazonses.com` instead.
      *
      * The lookup asks the account rather than guessing. `resend` is the
      * selector on every Resend domain today and it is still read rather than

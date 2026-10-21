@@ -1,3 +1,11 @@
+# v1.1.1
+## 10/21/2026
+
+1. [](#bugfix)
+    * **The SPF check no longer fails a correctly set up Resend domain.** The plugin still described Resend as sending through Amazon SES, so a deliverability check asked for `include:amazonses.com` on the domain's own SPF record and looked for a return path pointing at Amazon. Resend now has you add a `send` CNAME to `send.forge.rmta.net`, which carries the SPF itself, and its API lists that record as a CNAME. The plugin now reads that answer, so the check follows `send.<domain>` and passes, and nothing needs adding to the domain's own SPF record. Domains set up in Resend's Amazon days, with an MX record to `feedback-smtp.<region>.amazonses.com`, are still recognised
+1. [](#improved)
+    * The release zip no longer includes the tests and the PHPUnit setup
+
 # v1.1.0
 ## 09/24/2026
 

@@ -359,9 +359,10 @@ final class ResendApi
      * The two facts about one domain in Resend's answer.
      *
      * Their `records` list is the whole of it: a `DKIM` entry whose `name` is
-     * `<selector>._domainkey` and whose type is TXT, and an `SPF` entry whose
-     * `name` is the sending subdomain — `send` by default — and whose MX value
-     * points at `feedback-smtp.<region>.amazonses.com`. The names are relative
+     * `<selector>._domainkey` and whose type is TXT, and `SPF` entries whose
+     * `name` is the sending subdomain — `send` by default — and whose value is
+     * a CNAME to `send.forge.rmta.net` (or, on a domain from Resend's Amazon
+     * SES days, an MX to `feedback-smtp.<region>.amazonses.com`). The names are relative
      * to the domain, so `send` is written out as `send.example.com` here, which
      * is what a DNS check is going to look up.
      *
@@ -399,11 +400,15 @@ final class ResendApi
                 continue;
             }
 
-            // The return path is the subdomain whose MX points into Amazon's
-            // feedback host. Matching on that rather than on the literal name
-            // `send` is what keeps this working for an account that chose a
-            // different sending subdomain.
-            if ($type === 'MX' && str_ends_with($value, ResendProvider::RETURN_PATH_ZONE)) {
+            // The return path is the subdomain that points into Resend's
+            // sending hosts: a CNAME into rmta.net today, an MX into Amazon's
+            // feedback host on older domains. Matching on that rather than on
+            // the literal name `send` is what keeps this working for an
+            // account that chose a different sending subdomain.
+            $into = static fn (string $zone): bool => $value === $zone || str_ends_with($value, '.' . $zone);
+            if (($type === 'CNAME' && $into(ResendProvider::RETURN_PATH_ZONE))
+                || ($type === 'MX' && $into(ResendProvider::LEGACY_RETURN_PATH_ZONE))
+            ) {
                 $returnPaths[] = self::absolute($name, $domain);
             }
         }
