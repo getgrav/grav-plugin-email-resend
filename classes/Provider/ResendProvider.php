@@ -73,6 +73,18 @@ class ResendProvider implements Provider
     /** The selector Resend publishes on every domain today. Read from the account rather than assumed. */
     public const SELECTOR = 'resend';
 
+    /**
+     * Resend's own test address: accepted, delivered to nobody, and reported
+     * as delivered, so it produces the webhook event a store's test waits for.
+     *
+     * "To test that your emails are being successfully delivered, you can send
+     * an email to: delivered@resend.dev", and the test addresses "enable the
+     * safe use of Resend's Dashboard, Webhooks, and API":
+     * https://resend.com/docs/dashboard/emails/send-test-emails. They count
+     * against the account's sending quota like any other message.
+     */
+    public const TEST_RECIPIENT = 'delivered@resend.dev';
+
     /** The language key {@see instructions()} looks for before its English. */
     public const INSTRUCTIONS_KEY = 'PLUGIN_EMAIL_RESEND.PROVIDER_INSTRUCTIONS';
 
@@ -223,6 +235,20 @@ class ResendProvider implements Provider
             . 'field in the Email Resend plugin, because without it every event is refused. Or paste a '
             . 'full-access API key into that plugin and press Set up, which does all of it for you.'
         );
+    }
+
+    /**
+     * Where a store sends its webhook test: {@see TEST_RECIPIENT}.
+     *
+     * Not part of the Email plugin's `Provider` interface, and that is the
+     * point: a store asks `method_exists()` for it, so this class still loads
+     * beside an Email plugin from before the method existed, and a store that
+     * does not know about it never calls it. A constant, with no I/O, because
+     * a settings screen reads it.
+     */
+    public function testRecipient(): ?string
+    {
+        return self::TEST_RECIPIENT;
     }
 
     /**
