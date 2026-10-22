@@ -10,6 +10,8 @@ use Grav\Common\Grav;
 use Grav\Common\Plugin;
 use Grav\Plugin\EmailResend\Provider\ResendInboundProvider;
 use Grav\Plugin\EmailResend\Provider\ResendProvider;
+use Grav\Plugin\EmailResend\Provider\SiteTag;
+use Grav\Plugin\EmailResend\Provider\TaggingHttpClient;
 use RocketTheme\Toolbox\Event\Event;
 use Symfony\Component\Mailer\Bridge\Resend\Transport\ResendApiTransport;
 use Symfony\Component\Mailer\Bridge\Resend\Transport\ResendSmtpTransport;
@@ -90,7 +92,7 @@ class EmailResendPlugin extends Plugin
 
         $e['dsn'] = ($options['transport'] ?? 'api') === 'smtp'
             ? new ResendSmtpTransport($key)
-            : new ResendApiTransport($key);
+            : new ResendApiTransport($key, new TaggingHttpClient(SiteTag::value()));
 
         $e->stopPropagation();
     }

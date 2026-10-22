@@ -56,11 +56,12 @@ use Grav\Plugin\Email\Providers\WebhookRequest;
  * {@see \Grav\Plugin\EmailResend\Provider\ResendProvider::capabilities()} says
  * so rather than leaving a merchant to find out.
  *
- * `data.tags` is the one merchant-settable map that does come back, and it is
- * read as a fallback for a store that has wired one up by hand — Resend's tag
- * keys are restricted to letters, digits, underscores and hyphens, so the key
- * is the send header's own name folded into that alphabet by {@see tag()}:
- * `X-Grav-Send-Id` becomes `grav-send-id`.
+ * `data.tags` is the one map that does come back, so {@see TaggingHttpClient}
+ * copies the send id into a tag on every message sent over the API. Resend's
+ * tag keys are restricted to letters, digits, underscores and hyphens, so the
+ * key is the send header's own name folded into that alphabet by {@see tag()}:
+ * `X-Grav-Send-Id` becomes `grav-send-id`. The same map carries the
+ * {@see SiteTag}, and an event tagged for another site is turned away.
  *
  * ## Svix signatures
  *
@@ -148,8 +149,11 @@ final class ResendReports implements DeliveryReports
     /** @var (callable(): int) */
     private $clock;
 
-    /** @param (callable(): int)|null $clock the receiver's clock; a test hands over its own */
-    public function __construct(?callable $clock = null)
+    /**
+     * @param (callable(): int)|null $clock the receiver's clock; a test hands over its own
+     * @param string                 $site  this site's {@see SiteTag}, or empty to keep every event
+     */
+    public function __construct(?callable $clock = null, private readonly string $site = '')
     {
         $this->clock = $clock ?? static fn (): int => time();
     }
@@ -241,6 +245,14 @@ final class ResendReports implements DeliveryReports
         }
 
         $data = \is_array($body['data'] ?? null) ? $body['data'] : [];
+
+        // Resend posts every event on the team to every webhook on it, so
+        // another site's mail arrives here too. Its tag says whose it was.
+        $from = SiteTag::in($data['tags'] ?? null);
+        if ($this->site !== '' && $from !== null && !hash_equals($this->site, $from)) {
+            return Payload::nothing('Resend reported mail another site sent through the same Resend account');
+        }
+
         $bounce = \is_array($data['bounce'] ?? null) ? $data['bounce'] : [];
 
         $hard = null;
