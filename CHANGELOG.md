@@ -1,3 +1,11 @@
+# v1.1.3
+## 10/21/2026
+
+1. [](#bugfix)
+    * **Sites sharing one Resend account no longer get each other's events.** A Resend webhook belongs to the whole account, not to a domain, so every site on the account was receiving every other site's delivered, bounce and complaint events. One site's webhook test could read as received because of another site's mail, and a bounce from one site's list could take the address off another site's list. Every message sent over the API now carries a `grav-site` tag naming the site that sent it, and an event tagged for a different site is accepted and ignored. Mail sent before this update, or over SMTP, carries no tag and is kept as before
+1. [](#improved)
+    * **The send id comes back on every event.** The newsletter's send id is copied from the `X-Grav-Send-Id` header into a `grav-send-id` tag, which Resend returns on its events, so delivered, bounce and complaint events match their send without any setup
+
 # v1.1.2
 ## 10/21/2026
 

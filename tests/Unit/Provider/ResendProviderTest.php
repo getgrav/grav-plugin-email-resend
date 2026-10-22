@@ -99,7 +99,7 @@ final class ResendProviderTest extends TestCase
         // instead, in plain words, on the same screen.
         self::assertStringContainsString(SendHeader::name(), $capabilities->echoNote);
         self::assertStringContainsString(ResendReports::tag(), $capabilities->echoNote);
-        self::assertStringContainsString('Message-ID', $capabilities->echoNote);
+        self::assertStringContainsString('the site that sent it', $capabilities->echoNote);
     }
 
     /**

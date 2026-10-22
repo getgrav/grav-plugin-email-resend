@@ -146,10 +146,9 @@ class ResendProvider implements Provider
      * **Nothing comes back, though.** Resend's webhooks carry no headers at
      * all, on any event, and their documentation says so outright: "Webhooks do
      * not include the email body, headers, or attachments, only their
-     * metadata." So a send header is invisible at the other end and there is no
-     * setting that changes it. What does come back is `data.tags`, and
-     * `data.message_id`, which is the sender's own `Message-ID` — and that is
-     * the path to rely on, because it needs nothing configured.
+     * metadata." So a send header is invisible at the other end. What does come
+     * back is `data.tags`, and {@see TaggingHttpClient} copies the send id into
+     * one on every message sent over the API, along with the {@see SiteTag}.
      */
     public function capabilities(): Capabilities
     {
@@ -159,20 +158,14 @@ class ResendProvider implements Provider
             echoesHeaders: false,
             echoNote: strtr($this->say(
                 self::ECHO_NOTE_KEY,
-                'Resend sends no message headers back in its webhooks — their words are that a webhook carries '
-                . 'the metadata and not the body, the headers or the attachments — so %header% cannot be read at '
-                . 'the far end and no setting changes that. Resend does echo the message\'s tags, so a store that '
-                . 'sets a tag named %tag% gets it back on every event; Resend only allows letters, digits, '
-                . 'underscores and hyphens in a tag name, which is why it is not spelled like the header. '
-                . 'Matching on Message-ID needs none of this and works on every event, because Resend echoes it '
-                . 'in full.'
+                'Resend sends no message headers back in its webhooks, so %header% cannot be read at the far end. This plugin copies the send id into a tag named %tag% instead, and Resend returns tags on every event, so there is nothing to set up. Each message is also tagged with the site that sent it, so a site sharing a Resend account with other sites ignores their events.'
             ), ['%header%' => SendHeader::name(), '%tag%' => ResendReports::tag()]),
         );
     }
 
     public function reports(): ?DeliveryReports
     {
-        return $this->reports ??= new ResendReports();
+        return $this->reports ??= new ResendReports(null, SiteTag::value());
     }
 
     public function setup(): ?WebhookSetup
