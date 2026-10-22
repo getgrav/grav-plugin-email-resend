@@ -22,11 +22,10 @@ final class SiteTagTest extends TestCase
 {
     public function testTheValueIsStableForOneSiteAndDiffersBetweenSites(): void
     {
-        $one = SiteTag::value('/home/grav/webapps/site', 'box');
+        $one = SiteTag::value('/home/grav/webapps/site');
 
-        self::assertSame($one, SiteTag::value('/home/grav/webapps/site/', 'box'));
-        self::assertNotSame($one, SiteTag::value('/home/grav/webapps/newsletter', 'box'));
-        self::assertNotSame($one, SiteTag::value('/home/grav/webapps/site', 'other-box'));
+        self::assertSame($one, SiteTag::value('/home/grav/webapps/site/'));
+        self::assertNotSame($one, SiteTag::value('/home/grav/webapps/newsletter'));
         self::assertMatchesRegularExpression('/^[A-Za-z0-9_\-]{1,256}$/', $one, 'Resend\'s tag alphabet');
     }
 

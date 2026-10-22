@@ -17,9 +17,14 @@ namespace Grav\Plugin\EmailResend\Provider;
  * different site and keeps one with no tag at all, which is mail sent before
  * this existed or over SMTP.
  *
- * The value is worked out the same way when sending and when receiving, from
- * the site's folder and the machine's name, so it needs no setting, survives a
- * new API key, and never reveals either.
+ * The value is a hash of the site's folder, worked out the same way when
+ * sending and when receiving, so it needs no setting and survives a new API
+ * key. Only the folder: `GRAV_ROOT` is the same real path in a web request and
+ * on the command line, where a campaign is sent from, and anything else
+ * (the machine's name, say) can be switched off for one and not the other,
+ * which would have a site turning away its own events. Two sites at the same
+ * path on two machines get the same value and keep each other's events, which
+ * is how things were before.
  */
 final class SiteTag
 {
@@ -27,12 +32,11 @@ final class SiteTag
     public const NAME = 'grav-site';
 
     /** This site's value. */
-    public static function value(?string $root = null, ?string $machine = null): string
+    public static function value(?string $root = null): string
     {
         $root ??= \defined('GRAV_ROOT') ? (string)GRAV_ROOT : (string)getcwd();
-        $machine ??= \function_exists('php_uname') ? (string)php_uname('n') : '';
 
-        return 's' . substr(hash('sha256', $machine . "\0" . rtrim($root, '/')), 0, 20);
+        return 's' . substr(hash('sha256', rtrim($root, '/')), 0, 20);
     }
 
     /**
