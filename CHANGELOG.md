@@ -1,3 +1,9 @@
+# v1.1.4
+## 11/12/2026
+
+1. [](#bugfix)
+    * **Pictures shown inside a message arrive inline.** Symfony's Resend bridge sends every attachment as just a name and its bytes, so a picture a message shows with `<img src="cid:…">` (a helpdesk reply with a screenshot, say) reached Resend as an ordinary attachment: the message showed a broken image and the picture turned up at the bottom as a file. Over the API, an attachment the HTML names after `cid:` now goes with its `content_id`, which Resend sends as an inline part, so the picture shows where it belongs. Other attachments are unchanged. SMTP was never affected
+
 # v1.1.3
 ## 10/21/2026
 
